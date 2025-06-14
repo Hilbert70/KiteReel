@@ -1,0 +1,18 @@
+
+gpio6 SDA
+gpio7 SCL
+
+Need two motor pins (pwm/ledc)
+gpio0 pwm1
+gpio1 pwm2
+
+
+Need 3 switch pins (clk, dt sw)
+gpio2 clk
+gpio3 dt
+gpio4 sw
+
+Scanning...
+I2C device found at address 0x3C  !
+I2C device found at address 0x40  !
+
