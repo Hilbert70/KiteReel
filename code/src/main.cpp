@@ -29,6 +29,31 @@ void IRAM_ATTR readEncoderISR()
     rotaryEncoder.readEncoder_ISR();
 }
 
+void handle_rotary_button()
+{
+    static bool wasButtonDown = false;
+
+    bool isEncoderButtonDown = rotaryEncoder.isEncoderButtonDown();
+    // isEncoderButtonDown = !isEncoderButtonDown; //uncomment this line if your button is reversed
+
+    if (isEncoderButtonDown) {
+        // Serial.print("+"); // REMOVE THIS LINE IF YOU DONT WANT TO SEE
+        if (!wasButtonDown) {
+            // start measuring
+            Serial.print("STOP");
+            display.clearDisplay();
+            display.setCursor(10, 0);
+            display.print("STOP");
+            display.display();
+            delay(100);
+        }
+        // else we wait since button is still down
+        wasButtonDown = true;
+        return;
+    }
+    wasButtonDown = false;
+}
+
 void setup()
 {
     winch.begin();
@@ -56,7 +81,7 @@ void setup()
     display.setCursor(10, 15);
     display.println(F("Line 2"));
     display.display(); // Show initial text
-    delay(100);
+    // delay(100);
 }
 
 void loop()
@@ -74,4 +99,15 @@ void loop()
     winch.stop();
     delay(1000);
     */
+    if (rotaryEncoder.encoderChanged()) {
+        long value = rotaryEncoder.readEncoder();
+        Serial.print("Value: ");
+        Serial.println(value);
+        display.clearDisplay();
+        display.setCursor(10, 0);
+        display.print("Value ");
+        display.println(value);
+        display.display();
+    }
+    handle_rotary_button();
 }
