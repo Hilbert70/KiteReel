@@ -6,15 +6,6 @@
 #include <INA226.h>
 #include <Wire.h>
 
-/*
- - [x] IGB4 driver
- - [x] i2c display SSD1306
- - [ ] rotary switch
- - [ ] voltage/current measurement
- - [ ] wifi, also AP mode
- - [ ] make it all work together
-*/
-
 #define SCREEN_WIDTH 128    // OLED display width, in pixels
 #define SCREEN_HEIGHT 32    // OLED display height, in pixels
 #define OLED_RESET -1       // Reset pin # (or -1 if sharing Arduino reset pin)
@@ -34,12 +25,10 @@ void handle_rotary_button()
     static bool wasButtonDown = false;
 
     bool isEncoderButtonDown = rotaryEncoder.isEncoderButtonDown();
-    // isEncoderButtonDown = !isEncoderButtonDown; //uncomment this line if your button is reversed
 
     if (isEncoderButtonDown) {
-        // Serial.print("+"); // REMOVE THIS LINE IF YOU DONT WANT TO SEE
         if (!wasButtonDown) {
-            // start measuring
+            rotaryEncoder.setEncoderValue(0);
             Serial.print("STOP");
             display.clearDisplay();
             display.setCursor(10, 0);
@@ -47,7 +36,6 @@ void handle_rotary_button()
             display.display();
             delay(100);
         }
-        // else we wait since button is still down
         wasButtonDown = true;
         return;
     }
@@ -63,7 +51,7 @@ void setup()
 
     rotaryEncoder.begin();
     rotaryEncoder.setup(readEncoderISR);
-    rotaryEncoder.setBoundaries(0, 10, true); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+    rotaryEncoder.setBoundaries(-10, 10, false); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
     rotaryEncoder.disableAcceleration();      // acceleration is now enabled by default - disable if you dont need it
 
     if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
@@ -81,7 +69,8 @@ void setup()
     display.setCursor(10, 15);
     display.println(F("Line 2"));
     display.display(); // Show initial text
-    // delay(100);
+    // do some config stuff, STA or AP mode, this can be done later, it is a nice to have
+
 }
 
 void loop()
