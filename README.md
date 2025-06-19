@@ -48,7 +48,7 @@ TODO list
  - [x] i2c display SSD1306
  - [x] rotary switch
  - [x] make rotary and display work with the motor, needed for testing current and voltage late
- - [ ] BUG: pressing the button does not stop the motor
+ - [x] BUG: pressing the button does not stop the motor
  - [ ] voltage/current measurement
  - [ ] wifi, also AP mode
  - [ ] make it all work together

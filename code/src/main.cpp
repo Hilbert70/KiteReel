@@ -20,7 +20,7 @@ void IRAM_ATTR readEncoderISR()
     rotaryEncoder.readEncoder_ISR();
 }
 
-void handle_rotary_button()
+bool handle_rotary_button()
 {
     static bool wasButtonDown = false;
 
@@ -29,7 +29,7 @@ void handle_rotary_button()
     if (isEncoderButtonDown) {
         if (!wasButtonDown) {
             rotaryEncoder.setEncoderValue(0);
-            winch.stop();
+            //winch.stop();
 
             // update display
             Serial.print("STOP");
@@ -40,9 +40,10 @@ void handle_rotary_button()
             delay(100);
         }
         wasButtonDown = true;
-        return;
+        return true;
     }
     wasButtonDown = false;
+    return false;
 }
 
 void setup()
@@ -171,5 +172,10 @@ void loop()
         }
         rampTimer = millis();
     }
-    handle_rotary_button();
+    if (handle_rotary_button()) {
+        // we had a stop
+        rampValue = 0;
+        rampTarget = 0;
+        rampStarted = true;
+    }
 }
