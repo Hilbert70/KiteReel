@@ -1,6 +1,7 @@
 # This is work in progress
 
 The cad files will become available, once it is in a workable state.
+
 TODO:
  - [ ] electronics case
  - [ ] end stops for threaded ends (legs)
@@ -30,8 +31,8 @@ I2C device found at address 0x40  !
 ### IBT-4
 
 Need two motor pins (pwm/ledc)
-  - gpio0 pwm1
-  - gpio1 pwm2
+  - gpio0 in1
+  - gpio1 in2
 
 ### rotary encoder
 
@@ -46,7 +47,8 @@ TODO list
  - [x] IGB4 driver
  - [x] i2c display SSD1306
  - [x] rotary switch
- - [ ] make rotary and display work with the moter, needed for testing current and voltage late
+ - [x] make rotary and display work with the motor, needed for testing current and voltage late
+ - [ ] BUG: pressing the button does not stop the motor
  - [ ] voltage/current measurement
  - [ ] wifi, also AP mode
  - [ ] make it all work together

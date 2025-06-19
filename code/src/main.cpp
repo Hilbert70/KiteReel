@@ -29,6 +29,9 @@ void handle_rotary_button()
     if (isEncoderButtonDown) {
         if (!wasButtonDown) {
             rotaryEncoder.setEncoderValue(0);
+            winch.stop();
+
+            // update display
             Serial.print("STOP");
             display.clearDisplay();
             display.setCursor(10, 0);
@@ -52,7 +55,7 @@ void setup()
     rotaryEncoder.begin();
     rotaryEncoder.setup(readEncoderISR);
     rotaryEncoder.setBoundaries(-10, 10, false); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
-    rotaryEncoder.disableAcceleration();      // acceleration is now enabled by default - disable if you dont need it
+    rotaryEncoder.disableAcceleration();         // acceleration is now enabled by default - disable if you dont need it
 
     if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
         Serial.println(F("SSD1306 allocation failed"));
@@ -69,25 +72,24 @@ void setup()
     display.setCursor(10, 15);
     display.println(F("Line 2"));
     display.display(); // Show initial text
+    delay(5000);
     // do some config stuff, STA or AP mode, this can be done later, it is a nice to have
-
+    display.clearDisplay();
+    display.setCursor(10, 0);
+    display.print("STOP");
+    display.display();
+    delay(100);
 }
 
 void loop()
 {
-    /*
-     * winch working example
-    winch.setIn1High(255);
-    delay(1000);
+    const uint8_t rampStep = 20;    // determine if this is fast enough
+    const long rampTimeStep = 100; // just to start somewhere
+    static long rampTimer = millis();
+    static int rampValue = 0;  // motor is initially stopped
+    static int rampTarget = 0; // motor is initially stopped
+    static bool rampStarted = false;
 
-    winch.stop();
-    delay(1000);
-    winch.setIn2High(100);
-
-    delay(1000);
-    winch.stop();
-    delay(1000);
-    */
     if (rotaryEncoder.encoderChanged()) {
         long value = rotaryEncoder.readEncoder();
         Serial.print("Value: ");
@@ -97,6 +99,77 @@ void loop()
         display.print("Value ");
         display.println(value);
         display.display();
+
+        /*
+         * lets assume we do not go from - straight to +, alway from + to 0 and
+         * from 0 to - and vice versa
+         * (maybe later ;-)
+         */
+        if (value == 0) {
+            if (rampValue != 0) {
+                // start ramp down
+                rampTarget = 0;
+                rampStarted = true;
+                rampTimer = millis();
+            }
+        } else if (value > 0) {
+            rampTarget = 255;
+            rampStarted = true;
+            rampTimer = millis();
+
+            // do in1
+        } else if (value < 0) {
+            // do in2
+
+            rampTarget = -255;
+            rampStarted = true;
+            rampTimer = millis();
+        }
+        // if encoder value is + -> ramp up in1
+        // if encoder value is - -> ramp up in2
+        // if encoder value = 0 ramp down to stop
+    }
+    if (rampStarted && rampTimer + rampTimeStep < millis()) {
+        if (rampTarget == 255) {
+            rampValue += rampStep;
+            if (rampValue > 255) {
+                rampValue = 255;
+                rampStarted = false;
+            }
+        } else if (rampTarget == -255) {
+            rampValue -= rampStep;
+            if (rampValue < -255) {
+                rampValue = -255;
+                rampStarted = false;
+            }
+        } else if (rampTarget == 0) {
+            if (rampValue < 0) {
+                rampValue += rampStep;
+            } else {
+                rampValue -= rampStep;
+            }
+        }
+        // check the stop
+        if ((rampValue < rampStep - 5) &&
+            (rampValue > -rampStep + 5)) {
+            rampValue = 0;
+            if (rampTarget == 0) {
+                rampStarted = false;
+            }
+        }
+        Serial.print("rampValue: ");
+        Serial.print(rampValue);
+        Serial.print(" rampTarget: ");
+        Serial.println(rampTarget);
+        if (rampValue == 0) {
+            winch.stop();
+        } else if (rampValue > 0) {
+            // do in1 stuff
+            winch.setIn1High(rampValue);
+        } else {
+            winch.setIn2High(-rampValue);
+        }
+        rampTimer = millis();
     }
     handle_rotary_button();
 }
