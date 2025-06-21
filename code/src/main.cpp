@@ -14,6 +14,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 IBT4 winch(0, 1);
 
+INA226 ina(0x40);
+
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(2, 3, 4, -1, 4);
 void IRAM_ATTR readEncoderISR()
 {
@@ -28,11 +30,11 @@ bool handle_rotary_button()
 
     if (isEncoderButtonDown) {
         if (!wasButtonDown) {
-            rotaryEncoder.setEncoderValue(0);
-            //winch.stop();
+            
+            // winch.stop();
 
             // update display
-            Serial.print("STOP");
+            Serial.println("STOP");
             display.clearDisplay();
             display.setCursor(10, 0);
             display.print("STOP");
@@ -55,7 +57,7 @@ void setup()
 
     rotaryEncoder.begin();
     rotaryEncoder.setup(readEncoderISR);
-    rotaryEncoder.setBoundaries(-10, 10, false); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+    rotaryEncoder.setBoundaries(-1, 1, false); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
     rotaryEncoder.disableAcceleration();         // acceleration is now enabled by default - disable if you dont need it
 
     if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
@@ -64,6 +66,22 @@ void setup()
             ; // Don't proceed, loop forever
     }
 
+    if (!ina.begin()) {
+        Serial.println("Could not connect to INA226!");
+    }
+
+    Serial.println();
+    //  Serial.print("AVG:\t");
+    //  Serial.println((int)INA.getAverage());
+    ina.setAverage(2);
+    //  Serial.print("MAN:\t");
+    //  Serial.println(INA.getManufacturerID(), HEX);
+    //  Serial.print("DIE:\t");
+    //  Serial.println(INA.getDieID(), HEX);
+    delay(100);
+
+    int inaRetcode = ina.setMaxCurrentShunt(0.8, 0.1);
+
     display.clearDisplay();
 
     display.setTextSize(2); // Draw 2X-scale text
@@ -71,7 +89,7 @@ void setup()
     display.setCursor(10, 0);
     display.println(F("Test text"));
     display.setCursor(10, 15);
-    display.println(F("Line 2"));
+    display.print(F("i: "));display.println(inaRetcode);
     display.display(); // Show initial text
     delay(5000);
     // do some config stuff, STA or AP mode, this can be done later, it is a nice to have
@@ -84,7 +102,7 @@ void setup()
 
 void loop()
 {
-    const uint8_t rampStep = 20;    // determine if this is fast enough
+    const uint8_t rampStep = 20;   // determine if this is fast enough
     const long rampTimeStep = 100; // just to start somewhere
     static long rampTimer = millis();
     static int rampValue = 0;  // motor is initially stopped
@@ -101,11 +119,6 @@ void loop()
         display.println(value);
         display.display();
 
-        /*
-         * lets assume we do not go from - straight to +, alway from + to 0 and
-         * from 0 to - and vice versa
-         * (maybe later ;-)
-         */
         if (value == 0) {
             if (rampValue != 0) {
                 // start ramp down
@@ -126,10 +139,9 @@ void loop()
             rampStarted = true;
             rampTimer = millis();
         }
-        // if encoder value is + -> ramp up in1
-        // if encoder value is - -> ramp up in2
-        // if encoder value = 0 ramp down to stop
     }
+
+    // start doing stuff with the motor
     if (rampStarted && rampTimer + rampTimeStep < millis()) {
         if (rampTarget == 255) {
             rampValue += rampStep;
@@ -146,9 +158,10 @@ void loop()
         } else if (rampTarget == 0) {
             if (rampValue < 0) {
                 rampValue += rampStep;
-            } else {
+            } else if (rampValue > 0) {
                 rampValue -= rampStep;
             }
+            // else rampValue = 0
         }
         // check the stop
         if ((rampValue < rampStep - 5) &&
@@ -172,10 +185,21 @@ void loop()
         }
         rampTimer = millis();
     }
+
+    // see if the button is pressed
     if (handle_rotary_button()) {
         // we had a stop
         rampValue = 0;
         rampTarget = 0;
         rampStarted = true;
+        rotaryEncoder.setEncoderValue(0);
+    }
+
+    // do current and voltage measurement
+    if (ina.getCurrent() > 0.8) {
+        rampValue = 0;
+        rampTarget = 0;
+        rampStarted = true;
+        rotaryEncoder.setEncoderValue(0);
     }
 }
