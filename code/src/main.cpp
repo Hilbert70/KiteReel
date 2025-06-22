@@ -1,9 +1,12 @@
+#include "Esplog/esplog.h"
 #include "IBT4/IBT4.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <AiEsp32RotaryEncoder.h>
 #include <Arduino.h>
 #include <INA226.h>
+#include <Preferences.h>
+#include <WiFi.h>
 #include <Wire.h>
 
 #define SCREEN_WIDTH 128    // OLED display width, in pixels
@@ -11,10 +14,9 @@
 #define OLED_RESET -1       // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
 IBT4 winch(0, 1);
-
 INA226 ina(0x40);
+Preferences preferences;
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(2, 3, 4, -1, 4);
 void IRAM_ATTR readEncoderISR()
@@ -25,14 +27,10 @@ void IRAM_ATTR readEncoderISR()
 bool handle_rotary_button()
 {
     static bool wasButtonDown = false;
-
     bool isEncoderButtonDown = rotaryEncoder.isEncoderButtonDown();
 
     if (isEncoderButtonDown) {
         if (!wasButtonDown) {
-            
-            // winch.stop();
-
             // update display
             Serial.println("STOP");
             display.clearDisplay();
@@ -50,34 +48,71 @@ bool handle_rotary_button()
 
 void setup()
 {
+    delay(1000); // Delay for USB CDC initialization
+
+    uint32_t chipID = 0;
+    for (int i = 0; i < 17; i = i + 8) {
+        chipID |= ((ESP.getEfuseMac() >> (40 - i)) & 0xff) << i;
+    }
     winch.begin();
     Wire.begin(6, 7);
 
     Serial.begin(115200);
+    logger.setup(true, LOG_INFO); // for nor LOG
+    logger.log(LOG_INFO, "Started setup.");
+    preferences.begin("KiteReel", false);
+
+    loglevel nvsloglevel = (loglevel)preferences.getInt("loglevel", LOG_DEBUG); // for now
+    logger.setLoglevel(nvsloglevel);
+
+    char *ssid = (char *)malloc(sizeof(char) * 255);
+    char *psk = (char *)malloc(sizeof(char) * 255);
+    char *hostname = (char *)malloc(sizeof(char) * 255);
+
+    int ssidLength = preferences.getString("SSID", ssid, 254);
+    int pskLength = preferences.getString("PSK", psk, 254);
+    int hostnameLength = preferences.getString("hostname", hostname, 254);
+    if (hostnameLength == 0) {
+        sprintf(hostname, "ESP_%08X", chipID);
+    }
+    logger.vlogf(LOG_DEBUG, "hostname: %s", hostname);
+    logger.vlogf(LOG_DEBUG, "ssid %d, psk %d", ssidLength, pskLength);
+    if (ssidLength != 0) {
+        // go in STA mode
+        WiFi.mode(WIFI_STA);
+        WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
+        WiFi.setHostname(hostname);
+        WiFi.begin(ssid, psk);
+        logger.log(LOG_DEBUG, "Waiting for Wifi to connect");
+        unsigned long startTime = millis();
+        while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) { // Timeout after 10 seconds
+            delay(500);
+        }
+    }
+    if (WiFi.status() != WL_CONNECTED) {
+        // if STA mode did not work, go in AP mode
+        logger.log(LOG_INFO,"Failed to connect to STA. Falling back to AP.");
+        WiFi.mode(WIFI_AP);
+        WiFi.setTxPower(WIFI_POWER_8_5dBm); // reduce wifi power, the esp gets hot
+        WiFi.softAP(AP_SSID, AP_PSK);
+    }
 
     rotaryEncoder.begin();
     rotaryEncoder.setup(readEncoderISR);
     rotaryEncoder.setBoundaries(-1, 1, false); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
-    rotaryEncoder.disableAcceleration();         // acceleration is now enabled by default - disable if you dont need it
+    rotaryEncoder.disableAcceleration();       // acceleration is now enabled by default - disable if you dont need it
 
     if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-        Serial.println(F("SSD1306 allocation failed"));
+        logger.log(LOG_FATAL, "SSD1306 allocation failed");
         for (;;)
             ; // Don't proceed, loop forever
     }
 
     if (!ina.begin()) {
-        Serial.println("Could not connect to INA226!");
+        logger.log(LOG_ERROR, "Could not connect to INA226!");
     }
 
-    Serial.println();
-    //  Serial.print("AVG:\t");
-    //  Serial.println((int)INA.getAverage());
     ina.setAverage(2);
-    //  Serial.print("MAN:\t");
-    //  Serial.println(INA.getManufacturerID(), HEX);
-    //  Serial.print("DIE:\t");
-    //  Serial.println(INA.getDieID(), HEX);
     delay(100);
 
     int inaRetcode = ina.setMaxCurrentShunt(0.8, 0.1);
@@ -89,7 +124,8 @@ void setup()
     display.setCursor(10, 0);
     display.println(F("Test text"));
     display.setCursor(10, 15);
-    display.print(F("i: "));display.println(inaRetcode);
+    display.print(F("i: "));
+    display.println(inaRetcode);
     display.display(); // Show initial text
     delay(5000);
     // do some config stuff, STA or AP mode, this can be done later, it is a nice to have
@@ -111,8 +147,8 @@ void loop()
 
     if (rotaryEncoder.encoderChanged()) {
         long value = rotaryEncoder.readEncoder();
-        Serial.print("Value: ");
-        Serial.println(value);
+        logger.vlogf(LOG_INFO, "Value: %d", value);
+
         display.clearDisplay();
         display.setCursor(10, 0);
         display.print("Value ");
@@ -171,10 +207,7 @@ void loop()
                 rampStarted = false;
             }
         }
-        Serial.print("rampValue: ");
-        Serial.print(rampValue);
-        Serial.print(" rampTarget: ");
-        Serial.println(rampTarget);
+        logger.vlogf(LOG_DEBUG, "rampValue: %d rampTarget %d", rampValue, rampTarget);
         if (rampValue == 0) {
             winch.stop();
         } else if (rampValue > 0) {

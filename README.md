@@ -50,6 +50,7 @@ TODO list
  - [x] make rotary and display work with the motor, needed for testing current and voltage late
  - [x] BUG: pressing the button does not stop the motor
  - [x] voltage/current measurement
- - [ ] wifi, also AP mode
+ - [x] wifi, also AP mode
+ - [ ] create some pages to setup the thing
  - [ ] make it all work together
 
