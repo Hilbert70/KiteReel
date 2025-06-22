@@ -52,5 +52,6 @@ TODO list
  - [x] voltage/current measurement
  - [x] wifi, also AP mode
  - [ ] create some pages to setup the thing
+ - [ ] make OTA working
  - [ ] make it all work together
 
