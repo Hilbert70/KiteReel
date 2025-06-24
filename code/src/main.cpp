@@ -4,11 +4,9 @@
 #include <Adafruit_SSD1306.h>
 #include <AiEsp32RotaryEncoder.h>
 #include <Arduino.h>
-#include <ESPAsyncWebServer.h>
 #include <INA226.h>
 #include <Preferences.h>
 #include <SPIFFS.h>
-#include <WiFi.h>
 #include <Wire.h>
 
 #define SCREEN_WIDTH 128    // OLED display width, in pixels
@@ -19,7 +17,6 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 IBT4 winch(0, 1);
 INA226 ina(0x40);
 Preferences preferences;
-AsyncWebServer server(80);
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(2, 3, 4, -1, 4);
 void IRAM_ATTR readEncoderISR()
@@ -72,53 +69,6 @@ void setup()
     loglevel nvsloglevel = (loglevel)preferences.getInt("loglevel", LOG_DEBUG); // for now
     logger.setLoglevel(nvsloglevel);
 
-    char *ssid = (char *)malloc(sizeof(char) * 255);
-    char *psk = (char *)malloc(sizeof(char) * 255);
-    char *hostname = (char *)malloc(sizeof(char) * 255);
-
-    int ssidLength = preferences.getString("SSID", ssid, 254);
-    int pskLength = preferences.getString("PSK", psk, 254);
-    int hostnameLength = preferences.getString("hostname", hostname, 254);
-    if (hostnameLength == 0) {
-        sprintf(hostname, "ESP_%08X", chipID);
-    }
-    logger.vlogf(LOG_DEBUG, "hostname: %s", hostname);
-    logger.vlogf(LOG_DEBUG, "ssid %d, psk %d", ssidLength, pskLength);
-    if (ssidLength != 0) {
-        // go in STA mode
-        WiFi.mode(WIFI_STA);
-        WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-        WiFi.setHostname(hostname);
-        WiFi.begin(ssid, psk);
-        logger.log(LOG_DEBUG, "Waiting for Wifi to connect");
-        unsigned long startTime = millis();
-        while (WiFi.status() != WL_CONNECTED && millis() - startTime < 10000) { // Timeout after 10 seconds
-            delay(500);
-        }
-    }
-    if (WiFi.status() != WL_CONNECTED) {
-        // if STA mode did not work, go in AP mode
-        logger.log(LOG_INFO, "Failed to connect to STA. Falling back to AP.");
-        WiFi.mode(WIFI_AP);
-        WiFi.setTxPower(WIFI_POWER_8_5dBm); // reduce wifi power, the esp gets hot
-        WiFi.softAP(AP_SSID, AP_PSK);
-    }
-
-    // Print ESP32 Local IP Address
-    Serial.print("Obtained WiFi IP address: ");
-    Serial.println(WiFi.localIP());
-
-    // Route for root / web page
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(SPIFFS, "/index.html", String(), false, NULL);
-    });
-    server.on("/style.css", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(SPIFFS, "/style.css", "text/css");
-    });
-server.on("/app.js", HTTP_GET, [](AsyncWebServerRequest *request) {
-        request->send(SPIFFS, "/app.js", "text/javascript");
-    });
-
     rotaryEncoder.begin();
     rotaryEncoder.setup(readEncoderISR);
     rotaryEncoder.setBoundaries(-1, 1, false); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
@@ -157,7 +107,6 @@ server.on("/app.js", HTTP_GET, [](AsyncWebServerRequest *request) {
     display.display();
     delay(100);
 
-    server.begin();
 }
 
 void loop()

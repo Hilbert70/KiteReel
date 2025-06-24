@@ -43,15 +43,17 @@ Need 3 switch pins (clk, dt sw)
 
 # Program
 
-TODO list
+**WONT DO**
+
+There wont be any wifi, in AP mode the esp32-c3 becomes quite hot and it is on the bottom of the nice to have list.
+
+**TODO**
+
  - [x] IGB4 driver
  - [x] i2c display SSD1306
  - [x] rotary switch
  - [x] make rotary and display work with the motor, needed for testing current and voltage late
  - [x] BUG: pressing the button does not stop the motor
  - [x] voltage/current measurement
- - [x] wifi, also AP mode
- - [ ] create some pages to setup the thing
- - [ ] make OTA working
  - [ ] make it all work together
 
