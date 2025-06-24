@@ -1,11 +1,11 @@
 #include "Esplog/esplog.h"
+#include "ConfigFile/configfile.h"
 #include "IBT4/IBT4.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <AiEsp32RotaryEncoder.h>
 #include <Arduino.h>
 #include <INA226.h>
-#include <Preferences.h>
 #include <SPIFFS.h>
 #include <Wire.h>
 
@@ -16,7 +16,6 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 IBT4 winch(0, 1);
 INA226 ina(0x40);
-Preferences preferences;
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(2, 3, 4, -1, 4);
 void IRAM_ATTR readEncoderISR()
@@ -46,6 +45,7 @@ bool handle_rotary_button()
     return false;
 }
 
+
 void setup()
 {
     delay(1000); // Delay for USB CDC initialization
@@ -60,14 +60,10 @@ void setup()
     Serial.begin(115200);
     logger.setup(true, LOG_INFO); // for nor LOG
     logger.log(LOG_INFO, "Started setup.");
-    preferences.begin("KiteReel", false);
 
-    if (!SPIFFS.begin(true)) {
-        logger.log(LOG_ERROR, "An Error has occurred while mounting SPIFFS");
-        return;
-    }
-    loglevel nvsloglevel = (loglevel)preferences.getInt("loglevel", LOG_DEBUG); // for now
-    logger.setLoglevel(nvsloglevel);
+    ConfigFile config = ConfigFile();
+
+    logger.setLoglevel(config.getLoglevel());
 
     rotaryEncoder.begin();
     rotaryEncoder.setup(readEncoderISR);
