@@ -36,10 +36,10 @@ bool handle_rotary_button()
     if (isEncoderButtonDown) {
         if (!wasButtonDown) {
             // update display
-            Serial.println("STOP");
-            display.clearDisplay();
-            display.setCursor(10, 0);
-            display.print("STOP");
+            logger.log(LOG_INFO, "STOP");
+            // stop
+            display.fillRect(0, 0, 32, 32, SSD1306_BLACK);
+            display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
             display.display();
             delay(100);
         }
@@ -95,21 +95,7 @@ void setup()
     display.drawBitmap(0, 0, image_data_kitereel, 128, 32, SSD1306_WHITE);
     display.display();
     delay(2000);
-    /*
-    // testing the icons
-    display.clearDisplay();
-    display.drawBitmap(0, 0, image_data_arrowcw, 32, 32, SSD1306_WHITE);
-    display.display();
-    delay(2000);
-    display.clearDisplay();
-    display.drawBitmap(0, 0, image_data_arrowccw, 32, 32, SSD1306_WHITE);
-    display.display();
-    delay(2000);
-    display.clearDisplay();
-    display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
-    display.display();
-    delay(2000);
-    */
+
     if (!config.getFastBoot()) {
         display.clearDisplay();
         display.setTextSize(2);
@@ -255,7 +241,7 @@ void loop()
     }
     if (displayTimer + 1000 < millis()) {
         // update display
-        display.fillRect(0, 32, 128 - 32, 32, SSD1306_BLACK);
+        display.fillRect(32, 0, 128 - 32, 32, SSD1306_BLACK);
         display.setTextColor(SSD1306_WHITE);
         display.setCursor(37, 0);
         display.print("VB ");
