@@ -1,5 +1,5 @@
-#include "Esplog/esplog.h"
 #include "ConfigFile/configfile.h"
+#include "Esplog/esplog.h"
 #include "IBT4/IBT4.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -8,6 +8,8 @@
 #include <INA226.h>
 #include <SPIFFS.h>
 #include <Wire.h>
+
+#include "resources/kitereel-logo.h"
 
 #define SCREEN_WIDTH 128    // OLED display width, in pixels
 #define SCREEN_HEIGHT 32    // OLED display height, in pixels
@@ -45,7 +47,6 @@ bool handle_rotary_button()
     return false;
 }
 
-
 void setup()
 {
     delay(1000); // Delay for USB CDC initialization
@@ -63,6 +64,7 @@ void setup()
 
     ConfigFile config = ConfigFile();
 
+    logger.vlogf(LOG_FATAL, "loglevel %d", config.getLoglevel());
     logger.setLoglevel(config.getLoglevel());
 
     rotaryEncoder.begin();
@@ -86,11 +88,15 @@ void setup()
     int inaRetcode = ina.setMaxCurrentShunt(0.8, 0.1);
 
     display.clearDisplay();
-
+    display.drawBitmap(0,0,image_data_kitereel,128,32,SSD1306_WHITE);
+    display.display();
+    delay(5000);
+    display.clearDisplay();
     display.setTextSize(2); // Draw 2X-scale text
     display.setTextColor(SSD1306_WHITE);
     display.setCursor(10, 0);
-    display.println(F("Test text"));
+    display.print(F("Loglvl "));
+    display.print(config.getLoglevel());
     display.setCursor(10, 15);
     display.print(F("i: "));
     display.println(inaRetcode);
@@ -102,7 +108,6 @@ void setup()
     display.print("STOP");
     display.display();
     delay(100);
-
 }
 
 void loop()
