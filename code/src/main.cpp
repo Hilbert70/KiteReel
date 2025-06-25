@@ -9,7 +9,10 @@
 #include <SPIFFS.h>
 #include <Wire.h>
 
+#include "resources/arrow-ccw.h"
+#include "resources/arrow-cw.h"
 #include "resources/kitereel-logo.h"
+#include "resources/stop-icon.h"
 
 #define SCREEN_WIDTH 128    // OLED display width, in pixels
 #define SCREEN_HEIGHT 32    // OLED display height, in pixels
@@ -92,6 +95,21 @@ void setup()
     display.drawBitmap(0, 0, image_data_kitereel, 128, 32, SSD1306_WHITE);
     display.display();
     delay(2000);
+    /*
+    // testing the icons
+    display.clearDisplay();
+    display.drawBitmap(0, 0, image_data_arrowcw, 32, 32, SSD1306_WHITE);
+    display.display();
+    delay(2000);
+    display.clearDisplay();
+    display.drawBitmap(0, 0, image_data_arrowccw, 32, 32, SSD1306_WHITE);
+    display.display();
+    delay(2000);
+    display.clearDisplay();
+    display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
+    display.display();
+    delay(2000);
+    */
     if (!config.getFastBoot()) {
         display.clearDisplay();
         display.setTextSize(2);
@@ -115,11 +133,9 @@ void setup()
         delay(2000);
     }
     display.clearDisplay();
-    display.setTextSize(2);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(10, 0);
-    display.print("STOP");
+    display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
     display.display();
+    delay(2000);
     delay(100);
 }
 
@@ -128,6 +144,7 @@ void loop()
     const uint8_t rampStep = 20;   // determine if this is fast enough
     const long rampTimeStep = 100; // just to start somewhere
     static long rampTimer = millis();
+    static long displayTimer = millis();
     static int rampValue = 0;  // motor is initially stopped
     static int rampTarget = 0; // motor is initially stopped
     static bool rampStarted = false;
@@ -136,11 +153,25 @@ void loop()
         long value = rotaryEncoder.readEncoder();
         logger.vlogf(LOG_INFO, "Value: %d", value);
 
-        display.clearDisplay();
-        display.setCursor(10, 0);
-        display.print("Value ");
-        display.println(value);
-        display.display();
+        if (value > 0) {
+            // ccw
+            // display.clearDisplay();
+            display.fillRect(0, 0, 32, 32, SSD1306_BLACK);
+            display.drawBitmap(0, 0, image_data_arrowccw, 32, 32, SSD1306_WHITE);
+            display.display();
+        } else if (value < 0) {
+            // cw
+            // display.clearDisplay();
+            display.fillRect(0, 0, 32, 32, SSD1306_BLACK);
+            display.drawBitmap(0, 0, image_data_arrowcw, 32, 32, SSD1306_WHITE);
+            display.display();
+        } else {
+            // stop
+            // display.clearDisplay();
+            display.fillRect(0, 0, 32, 32, SSD1306_BLACK);
+            display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
+            display.display();
+        }
 
         if (value == 0) {
             if (rampValue != 0) {
@@ -221,5 +252,18 @@ void loop()
         rampTarget = 0;
         rampStarted = true;
         rotaryEncoder.setEncoderValue(0);
+    }
+    if (displayTimer + 1000 < millis()) {
+        // update display
+        display.fillRect(0, 32, 128 - 32, 32, SSD1306_BLACK);
+        display.setTextColor(SSD1306_WHITE);
+        display.setCursor(37, 0);
+        display.print("VB ");
+        display.println(ina.getBusVoltage());
+        display.setCursor(37, 16);
+        display.print("I  ");
+        display.print(ina.getCurrent());
+        display.display();
+        displayTimer = millis();
     }
 }

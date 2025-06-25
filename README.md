@@ -55,5 +55,6 @@ There wont be any wifi, in AP mode the esp32-c3 becomes quite hot and it is on t
  - [x] make rotary and display work with the motor, needed for testing current and voltage late
  - [x] BUG: pressing the button does not stop the motor
  - [x] voltage/current measurement
- - [ ] make it all work together
+ - [x] make it all work together
+ - [ ] stop when battery voltage is too low
 
