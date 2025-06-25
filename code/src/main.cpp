@@ -60,6 +60,7 @@ void setup()
 
     Serial.begin(115200);
     logger.setup(true, LOG_INFO); // for nor LOG
+    logger.vlogf(LOG_INFO, "kitereel %s", AUTO_VERSION);
     logger.log(LOG_INFO, "Started setup.");
 
     ConfigFile config = ConfigFile();
@@ -88,22 +89,34 @@ void setup()
     int inaRetcode = ina.setMaxCurrentShunt(0.8, 0.1);
 
     display.clearDisplay();
-    display.drawBitmap(0,0,image_data_kitereel,128,32,SSD1306_WHITE);
+    display.drawBitmap(0, 0, image_data_kitereel, 128, 32, SSD1306_WHITE);
     display.display();
-    delay(5000);
+    delay(2000);
+    if (!config.getFastBoot()) {
+        display.clearDisplay();
+        display.setTextSize(2);
+        display.setTextColor(SSD1306_WHITE);
+        display.setCursor(5, 0);
+        display.println(F("Version"));
+        display.setCursor(5, 16);
+        display.print(AUTO_VERSION);
+        display.display();
+        delay(2000);
+
+        // display some config settings
+        display.clearDisplay();
+        display.setCursor(10, 0);
+        display.print(F("Loglvl "));
+        display.print(config.getLoglevel());
+        display.setCursor(10, 16);
+        display.print(F("pwrs: "));
+        display.println(inaRetcode == 0 ? "ok" : "nok");
+        display.display(); // Show initial text
+        delay(2000);
+    }
     display.clearDisplay();
-    display.setTextSize(2); // Draw 2X-scale text
+    display.setTextSize(2);
     display.setTextColor(SSD1306_WHITE);
-    display.setCursor(10, 0);
-    display.print(F("Loglvl "));
-    display.print(config.getLoglevel());
-    display.setCursor(10, 15);
-    display.print(F("i: "));
-    display.println(inaRetcode);
-    display.display(); // Show initial text
-    delay(5000);
-    // do some config stuff, STA or AP mode, this can be done later, it is a nice to have
-    display.clearDisplay();
     display.setCursor(10, 0);
     display.print("STOP");
     display.display();

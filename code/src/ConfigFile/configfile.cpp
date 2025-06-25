@@ -6,6 +6,7 @@ ConfigFile::ConfigFile()
     // set defaults
 
     iniLoglevel = LOG_INFO; // INFO
+    iniFastBoot = false;    // do not skip the setup messages
 
     if (!SPIFFS.begin(true)) {
         logger.log(LOG_FATAL, "An error has occurred while mounting SPIFFS");
@@ -29,6 +30,9 @@ ConfigFile::ConfigFile()
         if (key == "LOGLEVEL") {
             iniLoglevel = (loglevel) value.toInt();
         }
+        if (key == "FASTBOOT") {
+            iniFastBoot = value.toInt() == 1;
+        }
     }
     file.close();
 }
@@ -40,4 +44,9 @@ ConfigFile::~ConfigFile()
 loglevel ConfigFile::getLoglevel()
 {
     return iniLoglevel;
+}
+
+bool ConfigFile::getFastBoot()
+{
+    return iniFastBoot;
 }

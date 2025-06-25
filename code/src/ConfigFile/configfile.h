@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Arduino.h>
 #include "Esplog/esplog.h"
+#include <Arduino.h>
 
 class ConfigFile
 {
@@ -10,6 +10,9 @@ class ConfigFile
     ~ConfigFile();
 
     loglevel getLoglevel();
+    bool getFastBoot();
+
   protected:
     loglevel iniLoglevel;
+    bool iniFastBoot;
 };
