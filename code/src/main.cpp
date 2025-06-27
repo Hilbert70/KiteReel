@@ -233,22 +233,45 @@ void loop()
     }
 
     // do current and voltage measurement
+    // stop if the motor current is larger than 0.8 A (0.1R), change when R = 0.02
     if (ina.getCurrent() > 0.8) {
         rampValue = 0;
         rampTarget = 0;
         rampStarted = true;
         rotaryEncoder.setEncoderValue(0);
+        display.fillRect(0, 0, 32, 32, SSD1306_BLACK);
+        display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
+        display.display();
     }
+    // stop if vbus is less that 7.6 volt
+    if (ina.getBusVoltage() < 7.6) {
+        rampValue = 0;
+        rampTarget = 0;
+        rampStarted = true;
+        rotaryEncoder.setEncoderValue(0);
+        display.fillRect(0, 0, 32, 32, SSD1306_BLACK);
+        display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
+        display.display();
+    }
+
     if (displayTimer + 1000 < millis()) {
         // update display
         display.fillRect(32, 0, 128 - 32, 32, SSD1306_BLACK);
         display.setTextColor(SSD1306_WHITE);
         display.setCursor(37, 0);
-        display.print("VB ");
-        display.println(ina.getBusVoltage());
-        display.setCursor(37, 16);
-        display.print("I  ");
-        display.print(ina.getCurrent());
+        float vbat = ina.getBusVoltage();
+        if (vbat < 7.6) {
+            display.print("BATTERY");
+            display.setCursor(37, 16);
+            display.print("VB ");
+            display.println(vbat);
+        } else {
+            display.print("VB ");
+            display.println(vbat);
+            display.setCursor(37, 16);
+            display.print("I  ");
+            display.print(ina.getCurrent());
+        }
         display.display();
         displayTimer = millis();
     }
