@@ -2,9 +2,12 @@
 
 The cad files will become available, once it is in a workable state.
 
-TODO:
+**TODO**
+
  - [ ] electronics case
  - [ ] end stops for threaded ends (legs)
+ - [ ] document the build
+ - [ ] document the electronics
 
 # Electronics setup
 
@@ -56,5 +59,6 @@ There wont be any wifi, in AP mode the esp32-c3 becomes quite hot and it is on t
  - [x] BUG: pressing the button does not stop the motor
  - [x] voltage/current measurement
  - [x] make it all work together
- - [ ] stop when battery voltage is too low
+ - [x] stop when battery voltage is too low
+ 
 

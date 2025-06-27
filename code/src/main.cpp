@@ -257,11 +257,22 @@ void loop()
     if (displayTimer + 1000 < millis()) {
         // update display
         display.fillRect(32, 0, 128 - 32, 32, SSD1306_BLACK);
-        display.setTextColor(SSD1306_WHITE);
         display.setCursor(37, 0);
         float vbat = ina.getBusVoltage();
         if (vbat < 7.6) {
+            static int count = 0;
+            if (count < 1) {
+                display.setTextColor(SSD1306_WHITE);
+            } else {
+                display.setTextColor(SSD1306_BLACK);
+                if (count >= 1)
+                    count = -1;
+            }
+            count++;
+            display.setCursor(37, 0);
             display.print("BATTERY");
+            display.setTextColor(SSD1306_WHITE);
+            display.setCursor(37, 0);
             display.setCursor(37, 16);
             display.print("VB ");
             display.println(vbat);
