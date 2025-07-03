@@ -7,6 +7,8 @@ ConfigFile::ConfigFile()
 
     iniLoglevel = LOG_INFO; // INFO
     iniFastBoot = false;    // do not skip the setup messages
+    iniMaxCurrent = 1.0;
+    iniMinVoltage = 3.6;
 
     if (!SPIFFS.begin(true)) {
         logger.log(LOG_FATAL, "An error has occurred while mounting SPIFFS");
@@ -28,10 +30,16 @@ ConfigFile::ConfigFile()
         String value = line.substring(separatorIndex + 1);
 
         if (key == "LOGLEVEL") {
-            iniLoglevel = (loglevel) value.toInt();
+            iniLoglevel = (loglevel)value.toInt();
         }
         if (key == "FASTBOOT") {
             iniFastBoot = value.toInt() == 1;
+        }
+        if (key == "MAXCURRENT") {
+            iniMaxCurrent = value.toFloat();
+        }
+        if (key == "MINVOLTAGE") {
+            iniMinVoltage = value.toFloat();
         }
     }
     file.close();
@@ -49,4 +57,14 @@ loglevel ConfigFile::getLoglevel()
 bool ConfigFile::getFastBoot()
 {
     return iniFastBoot;
+}
+
+float ConfigFile::getMaxCurrent()
+{
+    return iniMaxCurrent;
+}
+
+float ConfigFile::getMinVoltage()
+{
+    return iniMinVoltage;
 }

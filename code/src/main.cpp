@@ -22,6 +22,9 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 IBT4 winch(0, 1);
 INA226 ina(0x40);
 
+
+ConfigFile config;
+
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(2, 3, 4, -1, 4);
 void IRAM_ATTR readEncoderISR()
 {
@@ -66,7 +69,7 @@ void setup()
     logger.vlogf(LOG_INFO, "kitereel %s", AUTO_VERSION);
     logger.log(LOG_INFO, "Started setup.");
 
-    ConfigFile config = ConfigFile();
+    config = ConfigFile();
 
     logger.vlogf(LOG_FATAL, "loglevel %d", config.getLoglevel());
     logger.setLoglevel(config.getLoglevel());
@@ -116,6 +119,15 @@ void setup()
         display.setCursor(10, 16);
         display.print(F("pwrs: "));
         display.println(inaRetcode == 0 ? "ok" : "nok");
+        display.display(); // Show initial text
+        delay(2000);
+        display.clearDisplay();
+        display.setCursor(10, 0);
+        display.print(F("MaxI "));
+        display.print(config.getMaxCurrent());
+        display.setCursor(10, 16);
+        display.print(F("minV: "));
+        display.println(config.getMinVoltage());
         display.display(); // Show initial text
         delay(2000);
     }
@@ -235,7 +247,7 @@ void loop()
 
     // do current and voltage measurement
     // stop if the motor current is larger than 0.8 A (0.1R), change when R = 0.02 to 2.0 A
-    if (ina.getCurrent() > 2.0) {
+    if (ina.getCurrent() > config.getMaxCurrent()) {
         rampValue = 0;
         rampTarget = 0;
         rampStarted = true;
@@ -245,7 +257,7 @@ void loop()
         display.display();
     }
     // stop if vbus is less that 7.6 volt
-    if (ina.getBusVoltage() < 7.6) {
+    if (ina.getBusVoltage() < config.getMinVoltage()) {
         rampValue = 0;
         rampTarget = 0;
         rampStarted = true;
