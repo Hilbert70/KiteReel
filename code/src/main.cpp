@@ -89,7 +89,8 @@ void setup()
     ina.setAverage(2);
     delay(100);
 
-    int inaRetcode = ina.setMaxCurrentShunt(0.8, 0.1);
+    // int inaRetcode = ina.setMaxCurrentShunt(0.8, 0.1);
+    int inaRetcode = ina.setMaxCurrentShunt(3.0, 0.02);
 
     display.clearDisplay();
     display.drawBitmap(0, 0, image_data_kitereel, 128, 32, SSD1306_WHITE);
@@ -233,8 +234,8 @@ void loop()
     }
 
     // do current and voltage measurement
-    // stop if the motor current is larger than 0.8 A (0.1R), change when R = 0.02
-    if (ina.getCurrent() > 0.8) {
+    // stop if the motor current is larger than 0.8 A (0.1R), change when R = 0.02 to 2.0 A
+    if (ina.getCurrent() > 2.0) {
         rampValue = 0;
         rampTarget = 0;
         rampStarted = true;
@@ -278,7 +279,7 @@ void loop()
             display.println(vbat);
         } else {
             display.print("VB ");
-            display.println(vbat);
+            display.println(vbat,1);
             display.setCursor(37, 16);
             display.print("I  ");
             display.print(ina.getCurrent());
