@@ -20,6 +20,8 @@
 // include OLED icons
 #include "resources/arrow-ccw.h"
 #include "resources/arrow-cw.h"
+#include "resources/ble-connected.h"
+#include "resources/ble-disconnected.h"
 #include "resources/kitereel-logo.h"
 #include "resources/stop-icon.h"
 
@@ -264,16 +266,18 @@ void setup()
 #endif
     display.clearDisplay();
     display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
+#ifdef KITEREEL_WITH_BLE
+    display.drawBitmap(104, 64 - 24, image_data_bledisconnected, 24, 24, SSD1306_WHITE);
+#endif
     display.display();
-    delay(100);
 }
 
 void loop()
 {
     const uint8_t rampStep = 20;   // determine if this is fast enough
     const long rampTimeStep = 100; // just to start somewhere
-    static long rampTimer = millis();
-    static long displayTimer = millis();
+    static long rampTimer = millis(); 
+    static long displayTimer = millis()-1000; // display immediate ;
     static int rampValue = 0;  // motor is initially stopped
     static int rampTarget = 0; // motor is initially stopped
     static bool rampStarted = false;
@@ -284,6 +288,9 @@ void loop()
         pTxCharacteristic->notify();
         txValue++;
         delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+        display.fillRect(104, 64 - 24, 24, 24, SSD1306_BLACK);
+        display.drawBitmap(104, 64 - 24, image_data_bleconnected, 24, 24, SSD1306_WHITE);
+        display.display();
     }
 
     // disconnecting
@@ -292,6 +299,9 @@ void loop()
         pServer->startAdvertising(); // restart advertising
         logger.log(LOG_INFO, "start advertising");
         oldDeviceConnected = deviceConnected;
+        display.fillRect(104, 64 - 24, 24, 24, SSD1306_BLACK);
+        display.drawBitmap(104, 64 - 24, image_data_bledisconnected, 24, 24, SSD1306_WHITE);
+        display.display();
     }
     // connecting
     if (deviceConnected && !oldDeviceConnected) {
@@ -422,11 +432,11 @@ void loop()
     // Display battery voltage or flash "BATTERY" if the battery voltage is too low.
     if (displayTimer + 1000 < millis()) {
         // update display
-        display.fillRect(32, 0, 128 - 32, 32, SSD1306_BLACK);
-        display.setCursor(37, 0);
         float vbat = ina.getBusVoltage();
         if (vbat < config.getMinVoltage()) {
             static int count = 0;
+            display.fillRect(32, 0, 128 - 32, 32, SSD1306_BLACK);
+            display.setCursor(37, 0);
             if (count < 1) {
                 display.setTextColor(SSD1306_WHITE);
             } else {
@@ -439,7 +449,7 @@ void loop()
             display.print("BATTERY");
             display.setTextColor(SSD1306_WHITE);
         }
-        display.fillRect(0, 32, 128, 32, SSD1306_BLACK);
+        display.fillRect(0, 32, 96, 32, SSD1306_BLACK);
         display.setCursor(0, 32);
         display.print("VB ");
         display.println(vbat, 1);
