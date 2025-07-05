@@ -1,6 +1,6 @@
 ; copy this file to "myplatformio.ini" and make the changes that fit your situation
- 
+; if you want to control it through a BLE app set -DKITEREEL_WITH_BLE
+
 [common]
 additional_build_flags =
-  -DAP_SSID=\"KiteReel\"
-  -DAP_PSK=\"SecretPassword\"
+  -DKITEREEL_WITH_BLE

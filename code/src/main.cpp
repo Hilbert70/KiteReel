@@ -9,23 +9,119 @@
 #include <SPIFFS.h>
 #include <Wire.h>
 
+#ifdef KITEREEL_WITH_BLE
+// Include libraries for BLE
+#include <BLE2902.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#endif
+
+// include OLED icons
 #include "resources/arrow-ccw.h"
 #include "resources/arrow-cw.h"
 #include "resources/kitereel-logo.h"
 #include "resources/stop-icon.h"
 
 #define SCREEN_WIDTH 128    // OLED display width, in pixels
-#define SCREEN_HEIGHT 32    // OLED display height, in pixels
+#define SCREEN_HEIGHT 64    // OLED display height, in pixels
 #define OLED_RESET -1       // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 IBT4 winch(0, 1);
 INA226 ina(0x40);
 
-
 ConfigFile config;
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(2, 3, 4, -1, 4);
+
+#ifdef KITEREEL_WITH_BLE
+
+BLEServer *pServer = NULL;
+BLECharacteristic *pTxCharacteristic;
+bool deviceConnected = false;
+bool oldDeviceConnected = false;
+uint8_t txValue = 0;
+
+// See the following for generating UUIDs:
+// https://www.uuidgenerator.net/
+
+#define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E" // UART service UUID
+#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
+// Create classes, objects, structures
+class MyServerCallbacks : public BLEServerCallbacks
+{
+    void onConnect(BLEServer *pServer)
+    {
+        deviceConnected = true;
+    };
+
+    void onDisconnect(BLEServer *pServer)
+    {
+        deviceConnected = false;
+    }
+};
+
+struct BLEMessage {
+    String id = "";
+    String value = "";
+    int example = 0;
+};
+
+class MyCallbacks : public BLECharacteristicCallbacks
+{
+    void onWrite(BLECharacteristic *pCharacteristic)
+    {
+        std::string message = pCharacteristic->getValue();
+
+        BLEMessage msg;
+        int counter = 0;
+        String alphanumeric = "abcdefghijklmnopqrstuvwxyz,1234567890";
+
+        for (int i = 0; i < message.length(); i++) {
+            if (alphanumeric.indexOf(message[i]) == -1) {
+                counter += 1;
+            }
+
+            if (counter == 1 && i > 0) {
+                msg.id.concat(message[i]);
+            } else if (counter == 2 && i > msg.id.length() + 1) {
+                msg.value.concat(message[i]);
+            } else if (msg.id.length() > 0 && msg.value.length() > 0) {
+                logger.vlogf(LOG_DEBUG, "id: %s value: %s", msg.id, msg.value);
+            }
+        }
+
+        // Loop logic here
+        if (msg.id == "t0") {
+            if (msg.value == "onboard") {
+                msg.example = 1;
+            } else if (msg.value == "rgbtoggle") {
+                msg.example = 2;
+            } else if (msg.value == "rgbpwm") {
+                msg.example = 3;
+            } else if (msg.value == "drive") {
+                msg.example = 4;
+            }
+        }
+
+        /*
+        if (msg.example == 1) {
+            onboard_led(msg.id, msg.value);
+        } else if (msg.example == 2) {
+            rgb_toggle(msg.id, msg.value);
+        } else if (msg.example == 3) {
+            rgb_pwm(msg.id, msg.value);
+        } else if (msg.example == 4) {
+            joystick(msg.id, msg.value);
+        }
+            */
+    }
+};
+#endif
+
 void IRAM_ATTR readEncoderISR()
 {
     rotaryEncoder.readEncoder_ISR();
@@ -97,20 +193,16 @@ void setup()
 
     display.clearDisplay();
     display.drawBitmap(0, 0, image_data_kitereel, 128, 32, SSD1306_WHITE);
+    display.setTextSize(2);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(5, 32);
+    display.println(F("Version"));
+    display.setCursor(5, 48);
+    display.print(AUTO_VERSION);
     display.display();
     delay(2000);
 
     if (!config.getFastBoot()) {
-        display.clearDisplay();
-        display.setTextSize(2);
-        display.setTextColor(SSD1306_WHITE);
-        display.setCursor(5, 0);
-        display.println(F("Version"));
-        display.setCursor(5, 16);
-        display.print(AUTO_VERSION);
-        display.display();
-        delay(2000);
-
         // display some config settings
         display.clearDisplay();
         display.setCursor(10, 0);
@@ -120,21 +212,59 @@ void setup()
         display.print(F("pwrs: "));
         display.println(inaRetcode == 0 ? "ok" : "nok");
         display.display(); // Show initial text
-        delay(2000);
-        display.clearDisplay();
-        display.setCursor(10, 0);
+        display.setCursor(10, 32);
         display.print(F("MaxI "));
         display.print(config.getMaxCurrent());
-        display.setCursor(10, 16);
+        display.setCursor(10, 48);
         display.print(F("minV: "));
         display.println(config.getMinVoltage());
         display.display(); // Show initial text
         delay(2000);
+#ifdef KITEREEL_WITH_BLE
+        display.clearDisplay();
+        display.setCursor(10, 0);
+        display.print(F("BLE"));
+        display.setCursor(10, 16);
+        display.print(F("KiteReelBLE"));
+        display.display(); // Show initial text
+        delay(2000);
+#endif
     }
+
+#ifdef KITEREEL_WITH_BLE
+    // Create the BLE Device
+    BLEDevice::init("KiteReelBLE"); // TODO: make name configurable
+
+    // Create the BLE Server
+    pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new MyServerCallbacks());
+
+    // Create the BLE Service
+    BLEService *pService = pServer->createService(SERVICE_UUID);
+
+    // Create a BLE Characteristic
+    pTxCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID_TX,
+        BLECharacteristic::PROPERTY_NOTIFY);
+
+    pTxCharacteristic->addDescriptor(new BLE2902());
+
+    BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID_RX,
+        BLECharacteristic::PROPERTY_WRITE);
+
+    pRxCharacteristic->setCallbacks(new MyCallbacks());
+
+    // Start the service
+    pService->start();
+
+    // Start advertising
+    pServer->getAdvertising()->start();
+    logger.log(LOG_INFO, "Waiting a client connection to notify...");
+#endif
     display.clearDisplay();
     display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
     display.display();
-    delay(2000);
     delay(100);
 }
 
@@ -148,6 +278,28 @@ void loop()
     static int rampTarget = 0; // motor is initially stopped
     static bool rampStarted = false;
 
+#ifdef KITEREEL_WITH_BLE
+    if (deviceConnected) {
+        pTxCharacteristic->setValue(&txValue, 1);
+        pTxCharacteristic->notify();
+        txValue++;
+        delay(10); // bluetooth stack will go into congestion, if too many packets are sent
+    }
+
+    // disconnecting
+    if (!deviceConnected && oldDeviceConnected) {
+        delay(500);                  // give the bluetooth stack the chance to get things ready
+        pServer->startAdvertising(); // restart advertising
+        logger.log(LOG_INFO, "start advertising");
+        oldDeviceConnected = deviceConnected;
+    }
+    // connecting
+    if (deviceConnected && !oldDeviceConnected) {
+        // do stuff here on connecting
+        oldDeviceConnected = deviceConnected;
+    }
+#endif
+    // Handle rotary button
     if (rotaryEncoder.encoderChanged()) {
         long value = rotaryEncoder.readEncoder();
         logger.vlogf(LOG_INFO, "Value: %d", value);
@@ -224,7 +376,7 @@ void loop()
                 rampStarted = false;
             }
         }
-        logger.vlogf(LOG_DEBUG, "rampValue: %d rampTarget %d", rampValue, rampTarget);
+        // logger.vlogf(LOG_DEBUG, "rampValue: %d rampTarget %d", rampValue, rampTarget);
         if (rampValue == 0) {
             winch.stop();
         } else if (rampValue > 0) {
@@ -267,12 +419,13 @@ void loop()
         display.display();
     }
 
+    // Display battery voltage or flash "BATTERY" if the battery voltage is too low.
     if (displayTimer + 1000 < millis()) {
         // update display
         display.fillRect(32, 0, 128 - 32, 32, SSD1306_BLACK);
         display.setCursor(37, 0);
         float vbat = ina.getBusVoltage();
-        if (vbat < 7.6) {
+        if (vbat < config.getMinVoltage()) {
             static int count = 0;
             if (count < 1) {
                 display.setTextColor(SSD1306_WHITE);
@@ -285,17 +438,15 @@ void loop()
             display.setCursor(37, 0);
             display.print("BATTERY");
             display.setTextColor(SSD1306_WHITE);
-            display.setCursor(37, 0);
-            display.setCursor(37, 16);
-            display.print("VB ");
-            display.println(vbat);
-        } else {
-            display.print("VB ");
-            display.println(vbat,1);
-            display.setCursor(37, 16);
-            display.print("I  ");
-            display.print(ina.getCurrent());
         }
+        display.fillRect(0, 32, 128, 32, SSD1306_BLACK);
+        display.setCursor(0, 32);
+        display.print("VB ");
+        display.println(vbat, 1);
+        display.setCursor(0, 48);
+        display.print("I  ");
+        display.print(ina.getCurrent());
+
         display.display();
         displayTimer = millis();
     }

@@ -19,7 +19,7 @@ The cad files will become available, once it is in a workable state.
   - rotary encoder with button
   - INA226 current and voltage sensor, the current measure resistor has to be 0.02 Ohm (SMD 2512 3W)
   - IBT-4 motor driver
-  - 128x32 OLED display
+  - 128x64 OLED display
   - 12V mmotor 36gp-3530, 222 RPM, 8mm shaft
   - for development, a switch to decouple from the main power.
 
