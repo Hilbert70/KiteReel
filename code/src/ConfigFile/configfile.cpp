@@ -9,6 +9,9 @@ ConfigFile::ConfigFile()
     iniFastBoot = false;    // do not skip the setup messages
     iniMaxCurrent = 1.0;
     iniMinVoltage = 3.6;
+    iniBluetooth = false;
+    iniBLEName = "KiteReel";
+    iniBLEPIN = 1234;
 
     if (!SPIFFS.begin(true)) {
         logger.log(LOG_FATAL, "An error has occurred while mounting SPIFFS");
@@ -41,6 +44,15 @@ ConfigFile::ConfigFile()
         if (key == "MINVOLTAGE") {
             iniMinVoltage = value.toFloat();
         }
+        if (key == "BLUETOOTH") {
+            iniBluetooth = value.toInt() == 1;
+        }
+        if (key == "BLENAME") {
+            iniBLEName = value;
+        }
+        if (key == "BLEPIN") {
+            iniBLEName = value.toInt();
+        }
     }
     file.close();
 }
@@ -67,4 +79,19 @@ float ConfigFile::getMaxCurrent()
 float ConfigFile::getMinVoltage()
 {
     return iniMinVoltage;
+}
+
+bool ConfigFile::getBluetooth()
+{
+    return iniBluetooth;
+}
+
+String ConfigFile::getBLEName()
+{
+    return iniBLEName;
+}
+
+uint32_t ConfigFile::getBLEPIN()
+{
+    return iniBLEPIN;
 }

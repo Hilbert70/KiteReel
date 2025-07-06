@@ -9,13 +9,11 @@
 #include <SPIFFS.h>
 #include <Wire.h>
 
-#ifdef KITEREEL_WITH_BLE
 // Include libraries for BLE
 #include <BLE2902.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
-#endif
 
 // include OLED icons
 #include "resources/arrow-ccw.h"
@@ -36,8 +34,6 @@ INA226 ina(0x40);
 ConfigFile config;
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(2, 3, 4, -1, 4);
-
-#ifdef KITEREEL_WITH_BLE
 
 BLEServer *pServer = NULL;
 BLECharacteristic *pTxCharacteristic;
@@ -78,6 +74,8 @@ class MyCallbacks : public BLECharacteristicCallbacks
     {
         std::string message = pCharacteristic->getValue();
 
+        logger.vlogf(LOG_DEBUG, "rcv message: \"%s\"", message.c_str());
+
         BLEMessage msg;
         int counter = 0;
         String alphanumeric = "abcdefghijklmnopqrstuvwxyz,1234567890";
@@ -96,33 +94,29 @@ class MyCallbacks : public BLECharacteristicCallbacks
             }
         }
 
-        // Loop logic here
-        if (msg.id == "t0") {
-            if (msg.value == "onboard") {
-                msg.example = 1;
-            } else if (msg.value == "rgbtoggle") {
-                msg.example = 2;
-            } else if (msg.value == "rgbpwm") {
-                msg.example = 3;
-            } else if (msg.value == "drive") {
-                msg.example = 4;
+        if (msg.id == "stop") {
+            logger.vlogf(LOG_DEBUG, " -> stop = %d", msg.value.toInt());
+            if (msg.value.toInt() == 1) {
+                std::string notify_stop = "␁rotate␂50␃";
+                pTxCharacteristic->setValue(notify_stop);
+                pTxCharacteristic->notify();
             }
         }
-
-        /*
-        if (msg.example == 1) {
-            onboard_led(msg.id, msg.value);
-        } else if (msg.example == 2) {
-            rgb_toggle(msg.id, msg.value);
-        } else if (msg.example == 3) {
-            rgb_pwm(msg.id, msg.value);
-        } else if (msg.example == 4) {
-            joystick(msg.id, msg.value);
+        if (msg.id == "rotate") {
+            int value = msg.value.toInt();
+            int newRotatoryValue;
+            if (value <= 25) {
+                newRotatoryValue = -1;
+            } else if (value >= 75) {
+                newRotatoryValue = 1;
+            } else {
+                newRotatoryValue = 0;
+            }
+            logger.vlogf(LOG_DEBUG, " -> rotate = (%d) %d", newRotatoryValue, value);
+            rotaryEncoder.setEncoderValue(newRotatoryValue);
         }
-            */
     }
 };
-#endif
 
 void IRAM_ATTR readEncoderISR()
 {
@@ -150,7 +144,15 @@ bool handle_rotary_button()
     wasButtonDown = false;
     return false;
 }
-
+/*
+ *          | |
+ *  ___  ___| |_ _   _ _ __
+ * / __|/ _ \ __| | | | '_ \
+ * \__ \  __/ |_| |_| | |_) |
+ * |___/\___|\__|\__,_| .__/
+ *                    | |
+ *                    |_|
+ */
 void setup()
 {
     delay(1000); // Delay for USB CDC initialization
@@ -207,108 +209,117 @@ void setup()
     if (!config.getFastBoot()) {
         // display some config settings
         display.clearDisplay();
-        display.setCursor(10, 0);
+        display.setTextSize(1);
+        display.setCursor(0, 0);
         display.print(F("Loglvl "));
-        display.print(config.getLoglevel());
-        display.setCursor(10, 16);
+        display.println(config.getLoglevel());
         display.print(F("pwrs: "));
         display.println(inaRetcode == 0 ? "ok" : "nok");
-        display.display(); // Show initial text
-        display.setCursor(10, 32);
         display.print(F("MaxI "));
-        display.print(config.getMaxCurrent());
-        display.setCursor(10, 48);
+        display.println(config.getMaxCurrent());
         display.print(F("minV: "));
         display.println(config.getMinVoltage());
+        display.print(F("BLE: "));
+        if (config.getBluetooth()) {
+            display.println(F("on"));
+        } else {
+            display.println(F("off"));
+        }
+        display.print("BLE name:");
+        display.print("\"");
+        display.print(config.getBLEName());
+        display.println("\"");
+        display.print("BLE pin:");
+        display.println(config.getBLEPIN());
+
         display.display(); // Show initial text
-        delay(2000);
-#ifdef KITEREEL_WITH_BLE
-        display.clearDisplay();
-        display.setCursor(10, 0);
-        display.print(F("BLE"));
-        display.setCursor(10, 16);
-        display.print(F("KiteReelBLE"));
-        display.display(); // Show initial text
-        delay(2000);
-#endif
+        display.setTextSize(2);
+        delay(4000);
     }
 
-#ifdef KITEREEL_WITH_BLE
-    // Create the BLE Device
-    BLEDevice::init("KiteReelBLE"); // TODO: make name configurable
+    if (config.getBluetooth()) {
+        // Create the BLE Device
+        BLEDevice::init(std::string(config.getBLEName().c_str()));
+        // Create the BLE Server
+        pServer = BLEDevice::createServer();
+        pServer->setCallbacks(new MyServerCallbacks());
 
-    // Create the BLE Server
-    pServer = BLEDevice::createServer();
-    pServer->setCallbacks(new MyServerCallbacks());
+        // Create the BLE Service
+        BLEService *pService = pServer->createService(SERVICE_UUID);
 
-    // Create the BLE Service
-    BLEService *pService = pServer->createService(SERVICE_UUID);
+        // Create a BLE Characteristic
+        pTxCharacteristic = pService->createCharacteristic(
+            CHARACTERISTIC_UUID_TX,
+            BLECharacteristic::PROPERTY_NOTIFY);
 
-    // Create a BLE Characteristic
-    pTxCharacteristic = pService->createCharacteristic(
-        CHARACTERISTIC_UUID_TX,
-        BLECharacteristic::PROPERTY_NOTIFY);
+        pTxCharacteristic->addDescriptor(new BLE2902());
 
-    pTxCharacteristic->addDescriptor(new BLE2902());
+        BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
+            CHARACTERISTIC_UUID_RX,
+            BLECharacteristic::PROPERTY_WRITE);
 
-    BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
-        CHARACTERISTIC_UUID_RX,
-        BLECharacteristic::PROPERTY_WRITE);
+        pRxCharacteristic->setCallbacks(new MyCallbacks());
 
-    pRxCharacteristic->setCallbacks(new MyCallbacks());
+        pRxCharacteristic->setAccessPermissions( ESP_GATT_PERM_WRITE_ENCRYPTED);
 
-    // Start the service
-    pService->start();
+        // Start the service
+        pService->start();
 
-    // Start advertising
-    pServer->getAdvertising()->start();
-    logger.log(LOG_INFO, "Waiting a client connection to notify...");
-#endif
+        // Start advertising
+        pServer->getAdvertising()->start();
+
+        BLESecurity *pSecurity = new BLESecurity();
+        pSecurity->setStaticPIN(config.getBLEPIN());
+
+        logger.log(LOG_INFO, "Waiting a client connection to notify...");
+    }
     display.clearDisplay();
     display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
-#ifdef KITEREEL_WITH_BLE
-    display.drawBitmap(104, 64 - 24, image_data_bledisconnected, 24, 24, SSD1306_WHITE);
-#endif
+    if (config.getBluetooth()) {
+        display.drawBitmap(104, 64 - 24, image_data_bledisconnected, 24, 24, SSD1306_WHITE);
+    }
     display.display();
 }
 
+/*
+ * | |
+ * | | ___   ___  _ __
+ * | |/ _ \ / _ \| '_ \
+ * | | (_) | (_) | |_) |
+ * |_|\___/ \___/| .__/
+ *               | |
+ *               |_|
+ */
 void loop()
 {
     const uint8_t rampStep = 20;   // determine if this is fast enough
     const long rampTimeStep = 100; // just to start somewhere
-    static long rampTimer = millis(); 
-    static long displayTimer = millis()-1000; // display immediate ;
-    static int rampValue = 0;  // motor is initially stopped
-    static int rampTarget = 0; // motor is initially stopped
+    static long rampTimer = millis();
+    static long displayTimer = millis() - 1000; // display immediate ;
+    static int rampValue = 0;                   // motor is initially stopped
+    static int rampTarget = 0;                  // motor is initially stopped
     static bool rampStarted = false;
 
-#ifdef KITEREEL_WITH_BLE
-    if (deviceConnected) {
-        pTxCharacteristic->setValue(&txValue, 1);
-        pTxCharacteristic->notify();
-        txValue++;
-        delay(10); // bluetooth stack will go into congestion, if too many packets are sent
-        display.fillRect(104, 64 - 24, 24, 24, SSD1306_BLACK);
-        display.drawBitmap(104, 64 - 24, image_data_bleconnected, 24, 24, SSD1306_WHITE);
-        display.display();
+    if (config.getBluetooth()) {
+        // disconnecting
+        if (!deviceConnected && oldDeviceConnected) {
+            delay(500);                  // give the bluetooth stack the chance to get things ready
+            pServer->startAdvertising(); // restart advertising
+            logger.log(LOG_INFO, "start advertising");
+            oldDeviceConnected = deviceConnected;
+            display.fillRect(104, 64 - 24, 24, 24, SSD1306_BLACK);
+            display.drawBitmap(104, 64 - 24, image_data_bledisconnected, 24, 24, SSD1306_WHITE);
+            display.display();
+        }
+        // connecting
+        if (deviceConnected && !oldDeviceConnected) {
+            // do stuff here on connecting
+            oldDeviceConnected = deviceConnected;
+            display.fillRect(104, 64 - 24, 24, 24, SSD1306_BLACK);
+            display.drawBitmap(104, 64 - 24, image_data_bleconnected, 24, 24, SSD1306_WHITE);
+            display.display();
+        }
     }
-
-    // disconnecting
-    if (!deviceConnected && oldDeviceConnected) {
-        delay(500);                  // give the bluetooth stack the chance to get things ready
-        pServer->startAdvertising(); // restart advertising
-        logger.log(LOG_INFO, "start advertising");
-        oldDeviceConnected = deviceConnected;
-        display.fillRect(104, 64 - 24, 24, 24, SSD1306_BLACK);
-        display.drawBitmap(104, 64 - 24, image_data_bledisconnected, 24, 24, SSD1306_WHITE);
-        display.display();
-    }
-    // connecting
-    if (deviceConnected && !oldDeviceConnected) {
-        // do stuff here on connecting
-        oldDeviceConnected = deviceConnected;
-    }
-#endif
     // Handle rotary button
     if (rotaryEncoder.encoderChanged()) {
         long value = rotaryEncoder.readEncoder();
@@ -447,6 +458,8 @@ void loop()
             count++;
             display.setCursor(37, 0);
             display.print("BATTERY");
+            display.setCursor(37, 16);
+            display.print("LOW");
             display.setTextColor(SSD1306_WHITE);
         }
         display.fillRect(0, 32, 96, 32, SSD1306_BLACK);
