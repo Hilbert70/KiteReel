@@ -331,9 +331,10 @@ void loop()
         }
     }
     // Handle rotary button
-    if (rotaryEncoder.encoderChanged() || BLEdirection->isChanged()) {
+    bool rotChanged = rotaryEncoder.encoderChanged();
+    if (rotChanged || BLEdirection->isChanged()) {
         long value;
-        if (rotaryEncoder.encoderChanged()) {
+        if (rotChanged) {
             value = rotaryEncoder.readEncoder();
         } else {
             value = BLEdirection->getValue();
