@@ -51,7 +51,7 @@ ConfigFile::ConfigFile()
             iniBLEName = value;
         }
         if (key == "BLEPIN") {
-            iniBLEName = value.toInt();
+            iniBLEPIN = value.toInt();
         }
     }
     file.close();

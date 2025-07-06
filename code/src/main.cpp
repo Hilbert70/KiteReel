@@ -1,6 +1,7 @@
 #include "ConfigFile/configfile.h"
 #include "Esplog/esplog.h"
 #include "IBT4/IBT4.h"
+#include "MotorDirection/motordirection.h"
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <AiEsp32RotaryEncoder.h>
@@ -32,6 +33,7 @@ IBT4 winch(0, 1);
 INA226 ina(0x40);
 
 ConfigFile config;
+motordirection *BLEdirection = new motordirection();
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(2, 3, 4, -1, 4);
 
@@ -68,13 +70,14 @@ struct BLEMessage {
     int example = 0;
 };
 
+/*
+ * the code is based on using the MicroBlue app
+ */
 class MyCallbacks : public BLECharacteristicCallbacks
 {
     void onWrite(BLECharacteristic *pCharacteristic)
     {
         std::string message = pCharacteristic->getValue();
-
-        logger.vlogf(LOG_DEBUG, "rcv message: \"%s\"", message.c_str());
 
         BLEMessage msg;
         int counter = 0;
@@ -97,24 +100,29 @@ class MyCallbacks : public BLECharacteristicCallbacks
         if (msg.id == "stop") {
             logger.vlogf(LOG_DEBUG, " -> stop = %d", msg.value.toInt());
             if (msg.value.toInt() == 1) {
+                /* feedback to the app is not (hopefully yet) working
                 std::string notify_stop = "␁rotate␂50␃";
                 pTxCharacteristic->setValue(notify_stop);
                 pTxCharacteristic->notify();
+                */
+                BLEdirection->setValue(0,true);
             }
         }
         if (msg.id == "rotate") {
             int value = msg.value.toInt();
-            int newRotatoryValue;
             if (value <= 25) {
-                newRotatoryValue = -1;
+                BLEdirection->setValue(1);
             } else if (value >= 75) {
-                newRotatoryValue = 1;
+                BLEdirection->setValue(-1);
             } else {
-                newRotatoryValue = 0;
+                BLEdirection->setValue(0);
             }
-            logger.vlogf(LOG_DEBUG, " -> rotate = (%d) %d", newRotatoryValue, value);
-            rotaryEncoder.setEncoderValue(newRotatoryValue);
+            logger.vlogf(LOG_DEBUG, " -> rotate = (%d) %d", BLEdirection->getValue(false), value);
         }
+        // joystick or d-pad, wont do (yet)
+        /* if (msg.id == "d0") {
+           }
+         */
     }
 };
 
@@ -260,7 +268,8 @@ void setup()
 
         pRxCharacteristic->setCallbacks(new MyCallbacks());
 
-        pRxCharacteristic->setAccessPermissions( ESP_GATT_PERM_WRITE_ENCRYPTED);
+        pRxCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
+        pTxCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
 
         // Start the service
         pService->start();
@@ -270,6 +279,7 @@ void setup()
 
         BLESecurity *pSecurity = new BLESecurity();
         pSecurity->setStaticPIN(config.getBLEPIN());
+        pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
 
         logger.log(LOG_INFO, "Waiting a client connection to notify...");
     }
@@ -321,8 +331,13 @@ void loop()
         }
     }
     // Handle rotary button
-    if (rotaryEncoder.encoderChanged()) {
-        long value = rotaryEncoder.readEncoder();
+    if (rotaryEncoder.encoderChanged() || BLEdirection->isChanged()) {
+        long value;
+        if (rotaryEncoder.encoderChanged()) {
+            value = rotaryEncoder.readEncoder();
+        } else {
+            value = BLEdirection->getValue();
+        }
         logger.vlogf(LOG_INFO, "Value: %d", value);
 
         if (value > 0) {
@@ -410,7 +425,7 @@ void loop()
     }
 
     // see if the button is pressed
-    if (handle_rotary_button()) {
+    if (handle_rotary_button() || BLEdirection->isImmediateStop()) {
         // we had a stop
         rampValue = 0;
         rampTarget = 0;

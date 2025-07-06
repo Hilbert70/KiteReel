@@ -48,6 +48,25 @@ Need 3 switch pins (clk, dt sw)
 
 # Program
 
+## BLE
+
+You can control the kitereel with bluetooth, the only app it will work with is MicroBlue.
+
+Google play: https://play.google.com/store/apps/details?id=com.snappyxo.microblue&hl=en
+
+Apple store: https://apps.apple.com/us/app/microblue/id6469052831
+
+You have to define a button named "stop" and a slide named "rotary".
+
+As of writing this code there is no feedback possibility in MicroBlue, so when pressing the stop button, the slider will not move back to the middle.
+
+The config items:
+ - BLUETOOTH is 1 or 0 and enables or disables the BLE functionality, default disabled
+ - BLENAME the name of the device as it shows up in the list of BLE devices, default "KiteReel"
+ - BLEPIN the pin code you have to enter after pressing a button for the first time, defualt 1234
+
+## TODO/WONT DO
+
 **WONT DO**
 
 There wont be any wifi, in AP mode the esp32-c3 becomes quite hot and it is on the bottom of the nice to have list.
