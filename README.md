@@ -1,4 +1,15 @@
-# This is work in progress
+# KiteReel
+
+## Before you start
+
+Copy "my_platformio.ini.example" to "my_platformio.ini" and make your changes there by doing this, the updates the project makes do not get lost and you can put your password and address safely in the "my_platformio.ini", this file will never be put in git (a line in .gitignore).
+
+Copy the "data" directory to "mydata" and change the config.ini to your needs and upload it to the ESP.
+
+By doing this, future updates will not corrupt your settings, but when updates happen, please look in the original files to see if there were changes I missed to communicate.
+
+
+## This is work in progress
 
 The cad files will become available, once it is in a workable state.
 
@@ -9,23 +20,24 @@ The cad files will become available, once it is in a workable state.
  - [ ] document the build
  - [ ] document the electronics
 
-# Electronics setup
+## Electronics setup
 
  These are all off the shelf components, maybe later a PCB will become available to get rid of some wires.
 
-## Components used
+### Components used
 
   - ESP32-c3 mini
   - rotary encoder with button
   - INA226 current and voltage sensor, the current measure resistor has to be 0.02 Ohm (SMD 2512 3W)
   - IBT-4 motor driver
   - 128x64 OLED display
-  - 12V mmotor 36gp-3530, 222 RPM, 8mm shaft
-  - for development, a switch to decouple from the main power.
+  - 12V motor 36gp-3530, 222 RPM, 8mm shaft
+  - a diode, 1N4001 or something like that
+  - USB-C Power delivery adapter set to 12V, not more or you will risk blowing stuff up.
 
-## Wiring
+### Wiring
 
-### I2I
+#### I2I
 
   - gpio6 SDA
   - gpio7 SCL
@@ -33,22 +45,22 @@ The cad files will become available, once it is in a workable state.
 I2C device found at address 0x3C  !
 I2C device found at address 0x40  !
 
-### IBT-4
+#### IBT-4
 
 Need two motor pins (pwm/ledc)
   - gpio0 in1
   - gpio1 in2
 
-### rotary encoder
+#### rotary encoder
 
 Need 3 switch pins (clk, dt sw)
   - gpio2 clk 
   - gpio3 dt
   - gpio4 sw
 
-# Program
+## Program
 
-## BLE
+### BLE
 
 You can control the kitereel with bluetooth, the only app it will work with is MicroBlue.
 
@@ -65,7 +77,7 @@ The config items:
  - BLENAME the name of the device as it shows up in the list of BLE devices, default "KiteReel"
  - BLEPIN the pin code you have to enter after pressing a button for the first time, defualt 1234
 
-## TODO/WONT DO
+### TODO/WONT DO
 
 **WONT DO**
 
