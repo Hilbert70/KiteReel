@@ -459,17 +459,17 @@ void loop()
         display.print("V");
         display.setCursor(12,40);
         display.setTextSize(1);
-        display.print("B");
+        display.print("BAT");
         display.setTextSize(2);
-        display.setCursor(24, 32);
+        display.setCursor(36, 32);
         display.println(vbat, 1);
         display.setCursor(0, 48);
         display.print("I");
         display.setCursor(12,56);
         display.setTextSize(1);
-        display.print("M");
+        display.print("MOT");
         display.setTextSize(2);
-        display.setCursor(24, 48);
+        display.setCursor(36, 48);
         display.print(ina.getCurrent());
 
         display.display();
