@@ -418,27 +418,13 @@ void loop()
     }
 
     // see if the button is pressed
-    if (handle_rotary_button() || BLEdirection->isImmediateStop()) {
-        // we had a stop
-        rampValue = 0;
-        rampTarget = 0;
-        rampStarted = true;
-        rotaryEncoder.setEncoderValue(0);
-    }
-
-    // do current and voltage measurement
     // stop if the motor current is larger than 0.8 A (0.1R), change when R = 0.02 to 2.0 A
-    if (ina.getCurrent() > config.getMaxCurrent()) {
-        rampValue = 0;
-        rampTarget = 0;
-        rampStarted = true;
-        rotaryEncoder.setEncoderValue(0);
-        display.fillRect(0, 0, 32, 32, SSD1306_BLACK);
-        display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
-        display.display();
-    }
     // stop if vbus is less that 7.6 volt
-    if (ina.getBusVoltage() < config.getMinVoltage()) {
+    if (handle_rotary_button() ||
+        BLEdirection->isImmediateStop() ||
+        ina.getCurrent() > config.getMaxCurrent() ||
+        ina.getBusVoltage() < config.getMinVoltage()) {
+        // we had a stop
         rampValue = 0;
         rampTarget = 0;
         rampStarted = true;
@@ -456,14 +442,12 @@ void loop()
             static int count = 0;
             display.fillRect(32, 0, 128 - 32, 32, SSD1306_BLACK);
             display.setCursor(37, 0);
-            if (count < 1) {
+            if (count % 2) {
                 display.setTextColor(SSD1306_WHITE);
             } else {
                 display.setTextColor(SSD1306_BLACK);
-                if (count >= 1)
-                    count = -1;
             }
-            count++;
+            count = (++count) % 2;
             display.setCursor(37, 0);
             display.print("BATTERY");
             display.setCursor(37, 16);
@@ -472,10 +456,20 @@ void loop()
         }
         display.fillRect(0, 32, 96, 32, SSD1306_BLACK);
         display.setCursor(0, 32);
-        display.print("VB ");
+        display.print("V");
+        display.setCursor(12,40);
+        display.setTextSize(1);
+        display.print("B");
+        display.setTextSize(2);
+        display.setCursor(24, 32);
         display.println(vbat, 1);
         display.setCursor(0, 48);
-        display.print("I  ");
+        display.print("I");
+        display.setCursor(12,56);
+        display.setTextSize(1);
+        display.print("M");
+        display.setTextSize(2);
+        display.setCursor(24, 48);
         display.print(ina.getCurrent());
 
         display.display();
