@@ -33,7 +33,7 @@ IBT4 winch(0, 1);
 INA226 ina(0x40);
 
 ConfigFile config;
-motordirection *BLEdirection = new motordirection();
+motordirection BLEdirection = motordirection();
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(2, 3, 4, -1, 4);
 
@@ -101,19 +101,19 @@ class MyCallbacks : public BLECharacteristicCallbacks
                 pTxCharacteristic->setValue(notify_stop);
                 pTxCharacteristic->notify();
                 */
-                BLEdirection->setValue(0, true);
+                BLEdirection.setValue(0, true);
             }
         }
         if (msg.id == "rotate") {
             int value = msg.value.toInt();
             if (value <= 25) {
-                BLEdirection->setValue(1);
+                BLEdirection.setValue(1);
             } else if (value >= 75) {
-                BLEdirection->setValue(-1);
+                BLEdirection.setValue(-1);
             } else {
-                BLEdirection->setValue(0);
+                BLEdirection.setValue(0);
             }
-            logger.vlogf(LOG_DEBUG, " -> rotate = (%d) %d", BLEdirection->getValue(false), value);
+            logger.vlogf(LOG_DEBUG, " -> rotate = (%d) %d", BLEdirection.getValue(false), value);
         }
         // joystick or d-pad, wont do (yet)
         /* if (msg.id == "d0") {
@@ -328,12 +328,12 @@ void loop()
     }
     // Handle rotary button
     bool rotChanged = rotaryEncoder.encoderChanged();
-    if (rotChanged || BLEdirection->isChanged()) {
+    if (rotChanged || BLEdirection.isChanged()) {
         long value;
         if (rotChanged) {
             value = rotaryEncoder.readEncoder();
         } else {
-            value = BLEdirection->getValue();
+            value = BLEdirection.getValue();
         }
         logger.vlogf(LOG_DEBUG, "Value: %d", value);
 
@@ -421,7 +421,7 @@ void loop()
     // stop if the motor current is larger than 0.8 A (0.1R), change when R = 0.02 to 2.0 A
     // stop if vbus is less that 7.6 volt
     if (handle_rotary_button() ||
-        BLEdirection->isImmediateStop() ||
+        BLEdirection.isImmediateStop() ||
         ina.getCurrent() > config.getMaxCurrent() ||
         ina.getBusVoltage() < config.getMinVoltage()) {
         // we had a stop
