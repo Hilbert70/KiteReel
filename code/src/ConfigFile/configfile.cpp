@@ -53,6 +53,12 @@ ConfigFile::ConfigFile()
         if (key == "BLEPIN") {
             iniBLEPIN = value.toInt();
         }
+        if (key == "WIFISSID") {
+            iniWifiSSID = value;
+        }
+        if (key == "WIFIPASSWORD") {
+            iniWifiPassword = value;
+        }
     }
     file.close();
 }
@@ -94,4 +100,14 @@ String ConfigFile::getBLEName()
 uint32_t ConfigFile::getBLEPIN()
 {
     return iniBLEPIN;
+}
+
+String ConfigFile::getWifiSSID()
+{
+    return iniWifiSSID;
+}
+
+String ConfigFile::getWifiPassword()
+{
+    return iniWifiPassword;
 }

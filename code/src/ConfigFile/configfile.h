@@ -16,6 +16,8 @@ class ConfigFile
     bool getBluetooth();
     String getBLEName();
     uint32_t getBLEPIN();
+    String getWifiSSID();
+    String getWifiPassword();
 
   protected:
     loglevel iniLoglevel;
@@ -25,4 +27,6 @@ class ConfigFile
     bool iniBluetooth;
     String iniBLEName;
     uint32_t iniBLEPIN;
+    String iniWifiSSID;
+    String iniWifiPassword;
 };
