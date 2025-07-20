@@ -12,6 +12,10 @@ ConfigFile::ConfigFile()
     iniBluetooth = false;
     iniBLEName = "KiteReel";
     iniBLEPIN = 1234;
+    iniWifiSSID = "";
+    iniWifiPassword = "";
+    iniOTAPassword = "";
+    iniHostname = "";
 
     if (!SPIFFS.begin(true)) {
         logger.log(LOG_FATAL, "An error has occurred while mounting SPIFFS");
@@ -58,6 +62,12 @@ ConfigFile::ConfigFile()
         }
         if (key == "WIFIPASSWORD") {
             iniWifiPassword = value;
+        }
+        if (key == "OTAPASSWORD") {
+            iniOTAPassword = value;
+        }
+        if (key == "HOSTNAME") {
+            iniHostname = value;
         }
     }
     file.close();
@@ -110,4 +120,13 @@ String ConfigFile::getWifiSSID()
 String ConfigFile::getWifiPassword()
 {
     return iniWifiPassword;
+}
+
+String ConfigFile::getOTAPassword()
+{
+    return iniOTAPassword;
+}
+String ConfigFile::getHostname()
+{
+    return iniHostname;
 }

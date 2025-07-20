@@ -18,6 +18,8 @@ class ConfigFile
     uint32_t getBLEPIN();
     String getWifiSSID();
     String getWifiPassword();
+    String getOTAPassword();
+    String getHostname();
 
   protected:
     loglevel iniLoglevel;
@@ -29,4 +31,6 @@ class ConfigFile
     uint32_t iniBLEPIN;
     String iniWifiSSID;
     String iniWifiPassword;
+    String iniOTAPassword;
+    String iniHostname;
 };

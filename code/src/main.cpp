@@ -6,8 +6,10 @@
 #include <Adafruit_SSD1306.h>
 #include <AiEsp32RotaryEncoder.h>
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <INA226.h>
 #include <SPIFFS.h>
+#include <WiFi.h>
 #include <Wire.h>
 
 #include <NimBLEDevice.h>
@@ -37,6 +39,7 @@ NimBLEServer *pServer = NULL;
 NimBLECharacteristic *pTxCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
+bool haveWiFi = false;
 
 #define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E" // UART service UUID
 #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -131,11 +134,8 @@ bool handle_rotary_button()
     if (isEncoderButtonDown) {
         if (!wasButtonDown) {
             // update display
-            logger.log(LOG_INFO, "STOP");
+            logger.log(LOG_DEBUG, "Button pressed");
             // stop
-            display.fillRect(0, 0, 32, 32, SSD1306_BLACK);
-            display.drawBitmap(0, 0, image_data_stopicon, 32, 32, SSD1306_WHITE);
-            display.display();
             delay(100);
         }
         wasButtonDown = true;
@@ -144,6 +144,30 @@ bool handle_rotary_button()
     wasButtonDown = false;
     return false;
 }
+
+void displayFirmwareMessage(const char *message)
+{
+    display.fillRect(0, 0, 24, 128, SSD1306_BLACK);
+    display.setCursor(5, 5);
+    display.print(message);
+    display.display();
+}
+
+void startFWUpdate(int size, const char *type)
+{
+    logger.vlogf(LOG_INFO, "Updating %s...", type);
+    display.clearDisplay();
+    displayFirmwareMessage(" Update ");
+}
+
+void displayUpdateFWUpdate(int size, int currentSize)
+{
+    Serial.print(".");
+    display.drawRect(5, 32, 128 - 5, 30, SSD1306_WHITE);
+    display.fillRect(5, 32, ((128 - 5) * currentSize) / size, 30, SSD1306_WHITE);
+    display.display();
+}
+
 /*
  *          | |
  *  ___  ___| |_ _   _ _ __
@@ -205,6 +229,75 @@ void setup()
     display.print(AUTO_VERSION);
     display.display();
     delay(2000);
+    logger.vlogf(LOG_INFO, "As \"%s\" connecting to wifi: \"%s\"?", config.getHostname().c_str(),config.getWifiSSID().c_str());
+    if (rotaryEncoder.isEncoderButtonDown() && config.getWifiSSID() != "") {
+        display.clearDisplay();
+        display.setTextSize(1);
+        display.setCursor(0, 0);
+        logger.vlogf(LOG_INFO, "Connecting to wifi: %s.", config.getWifiSSID().c_str());
+        display.print("Connect to WiFi ");
+        // otherwise the default esp generated hostname
+        if (config.getHostname() != "")
+            WiFi.setHostname(config.getHostname().c_str());
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(config.getWifiSSID().c_str(), config.getWifiPassword().c_str());
+        while (WiFi.status() != WL_CONNECTED) {
+            Serial.print('.');
+            display.print(".");
+            delay(1000);
+        }
+        logger.vlogf(LOG_INFO, "Connected to wifi (%d).", (WiFi.status() == WL_CONNECTED));
+        display.println("WIFI.");
+        haveWiFi = WiFi.status() == WL_CONNECTED;
+
+        ArduinoOTA.onStart([]() {
+            Serial.println("Start");
+            const char *type;
+            if (ArduinoOTA.getCommand() == U_FLASH)
+                type = "firmware";
+            else { // U_SPIFFS
+                type = "filesystem";
+                SPIFFS.end();
+            }
+            startFWUpdate(0, type);
+        });
+
+        if (config.getOTAPassword() != "") {
+            ArduinoOTA.setPassword(config.getOTAPassword().c_str());
+        }
+
+        ArduinoOTA.onEnd([]() {
+            Serial.println("\nSuccess!");
+            displayFirmwareMessage("Success!");
+        });
+        ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+            Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+            displayUpdateFWUpdate(total, progress);
+        });
+
+        ArduinoOTA.onError([](ota_error_t error) {
+            Serial.printf("Error[%u]: ", error);
+            if (error == OTA_AUTH_ERROR) {
+                Serial.println("Auth Failed");
+                displayFirmwareMessage("Auth Failed!");
+            } else if (error == OTA_BEGIN_ERROR) {
+                Serial.println("Begin Failed");
+                displayFirmwareMessage("Begin Failed!");
+            } else if (error == OTA_CONNECT_ERROR) {
+                Serial.println("Connect Failed");
+                displayFirmwareMessage("Connect Failed!");
+            } else if (error == OTA_RECEIVE_ERROR) {
+                Serial.println("Receive Failed");
+                displayFirmwareMessage("Receive Failed!");
+            } else if (error == OTA_END_ERROR) {
+                Serial.println("End Failed");
+                displayFirmwareMessage("End Failed!");
+            }
+            delay(1000); // Wait a second
+            display.clearDisplay();
+        });
+        ArduinoOTA.begin();
+    }
 
     if (!config.getFastBoot()) {
         // display some config settings
@@ -463,4 +556,6 @@ void loop()
         display.display();
         displayTimer = millis();
     }
+    if (haveWiFi)
+        ArduinoOTA.handle();
 }
