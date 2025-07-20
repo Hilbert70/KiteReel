@@ -147,7 +147,7 @@ bool handle_rotary_button()
 
 void displayFirmwareMessage(const char *message)
 {
-    display.fillRect(0, 0, 24, 128, SSD1306_BLACK);
+    display.fillRect(0, 0, 128, 32, SSD1306_BLACK);
     display.setCursor(5, 5);
     display.print(message);
     display.display();
