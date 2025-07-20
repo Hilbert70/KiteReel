@@ -10,11 +10,7 @@
 #include <SPIFFS.h>
 #include <Wire.h>
 
-// Include libraries for BLE
-#include <BLE2902.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
+#include <NimBLEDevice.h>
 
 // include OLED icons
 #include "resources/arrow-ccw.h"
@@ -37,8 +33,8 @@ motordirection BLEdirection = motordirection();
 
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(2, 3, 4, -1, 4);
 
-BLEServer *pServer = NULL;
-BLECharacteristic *pTxCharacteristic;
+NimBLEServer *pServer = NULL;
+NimBLECharacteristic *pTxCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
@@ -47,14 +43,14 @@ bool oldDeviceConnected = false;
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 // Create classes, objects, structures
-class MyServerCallbacks : public BLEServerCallbacks
+class MyServerCallbacks : public NimBLEServerCallbacks
 {
-    void onConnect(BLEServer *pServer)
+    void onConnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo) override
     {
         deviceConnected = true;
     };
 
-    void onDisconnect(BLEServer *pServer)
+    void onDisconnect(NimBLEServer *pServer, NimBLEConnInfo &connInfo, int reason) override
     {
         deviceConnected = false;
     }
@@ -69,9 +65,9 @@ struct BLEMessage {
 /*
  * the code is based on using the MicroBlue app
  */
-class MyCallbacks : public BLECharacteristicCallbacks
+class MyCallbacks : public NimBLECharacteristicCallbacks
 {
-    void onWrite(BLECharacteristic *pCharacteristic)
+    void onWrite(NimBLECharacteristic *pCharacteristic, NimBLEConnInfo &connInfo) override
     {
         std::string message = pCharacteristic->getValue();
 
@@ -243,39 +239,31 @@ void setup()
 
     if (config.getBluetooth()) {
         // Create the BLE Device
-        BLEDevice::init(std::string(config.getBLEName().c_str()));
+
+        NimBLEDevice::init(std::string(config.getBLEName().c_str()));
         // Create the BLE Server
-        pServer = BLEDevice::createServer();
+        pServer = NimBLEDevice::createServer();
         pServer->setCallbacks(new MyServerCallbacks());
 
         // Create the BLE Service
-        BLEService *pService = pServer->createService(SERVICE_UUID);
+        NimBLEService *pService = pServer->createService(SERVICE_UUID);
 
         // Create a BLE Characteristic
-        pTxCharacteristic = pService->createCharacteristic(
-            CHARACTERISTIC_UUID_TX,
-            BLECharacteristic::PROPERTY_NOTIFY);
+        pTxCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID_TX, NIMBLE_PROPERTY::NOTIFY | NIMBLE_PROPERTY::READ_ENC | NIMBLE_PROPERTY::READ_AUTHEN);
 
-        pTxCharacteristic->addDescriptor(new BLE2902());
-
-        BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
-            CHARACTERISTIC_UUID_RX,
-            BLECharacteristic::PROPERTY_WRITE);
+        NimBLECharacteristic *pRxCharacteristic =
+            pService->createCharacteristic(CHARACTERISTIC_UUID_RX, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_ENC | NIMBLE_PROPERTY::WRITE_AUTHEN);
 
         pRxCharacteristic->setCallbacks(new MyCallbacks());
 
-        pRxCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
-        pTxCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
-
+        NimBLEDevice::setSecurityAuth(true, true, true);
+        NimBLEDevice::setSecurityPasskey(config.getBLEPIN());
+        NimBLEDevice::setSecurityIOCap(BLE_HS_IO_DISPLAY_ONLY);
         // Start the service
         pService->start();
 
         // Start advertising
         pServer->getAdvertising()->start();
-
-        BLESecurity *pSecurity = new BLESecurity();
-        pSecurity->setStaticPIN(config.getBLEPIN());
-        pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
 
         logger.log(LOG_INFO, "Waiting a client connection to notify...");
     }
@@ -457,7 +445,7 @@ void loop()
         display.fillRect(0, 32, 96, 32, SSD1306_BLACK);
         display.setCursor(0, 32);
         display.print("V");
-        display.setCursor(12,40);
+        display.setCursor(12, 40);
         display.setTextSize(1);
         display.print("BAT");
         display.setTextSize(2);
@@ -465,7 +453,7 @@ void loop()
         display.println(vbat, 1);
         display.setCursor(0, 48);
         display.print("I");
-        display.setCursor(12,56);
+        display.setCursor(12, 56);
         display.setTextSize(1);
         display.print("MOT");
         display.setTextSize(2);
