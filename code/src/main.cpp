@@ -219,6 +219,7 @@ void setup()
     // int inaRetcode = ina.setMaxCurrentShunt(0.8, 0.1);
     int inaRetcode = ina.setMaxCurrentShunt(3.0, 0.02);
 
+    display.setRotation(2);
     display.clearDisplay();
     display.drawBitmap(0, 0, image_data_kitereel, 128, 32, SSD1306_WHITE);
     display.setTextSize(2);
@@ -229,13 +230,14 @@ void setup()
     display.print(AUTO_VERSION);
     display.display();
     delay(2000);
-    logger.vlogf(LOG_INFO, "As \"%s\" connecting to wifi: \"%s\"?", config.getHostname().c_str(),config.getWifiSSID().c_str());
+    logger.vlogf(LOG_INFO, "As \"%s\" connecting to wifi: \"%s\"?", config.getHostname().c_str(), config.getWifiSSID().c_str());
     if (rotaryEncoder.isEncoderButtonDown() && config.getWifiSSID() != "") {
         display.clearDisplay();
         display.setTextSize(1);
         display.setCursor(0, 0);
         logger.vlogf(LOG_INFO, "Connecting to wifi: %s.", config.getWifiSSID().c_str());
         display.print("Connect to WiFi ");
+        display.display();
         // otherwise the default esp generated hostname
         if (config.getHostname() != "")
             WiFi.setHostname(config.getHostname().c_str());
@@ -244,6 +246,7 @@ void setup()
         while (WiFi.status() != WL_CONNECTED) {
             Serial.print('.');
             display.print(".");
+            display.display();
             delay(1000);
         }
         logger.vlogf(LOG_INFO, "Connected to wifi (%d).", (WiFi.status() == WL_CONNECTED));
@@ -491,9 +494,9 @@ void loop()
             winch.stop();
         } else if (rampValue > 0) {
             // do in1 stuff
-            winch.setIn1High(rampValue);
+            winch.setIn2High(rampValue);
         } else {
-            winch.setIn2High(-rampValue);
+            winch.setIn1High(-rampValue);
         }
         rampTimer = millis();
     }
@@ -556,6 +559,17 @@ void loop()
         display.display();
         displayTimer = millis();
     }
-    if (haveWiFi)
+    if (haveWiFi) {
         ArduinoOTA.handle();
+        display.fillRect(104, 64 - 32, 24, 8, SSD1306_BLACK);
+        display.setTextSize(1);
+        display.setCursor(104, 64 - 32);
+        display.print("wifi");
+        display.display();
+        display.setTextSize(2);
+    } else {
+        display.fillRect(104, 64 - 32, 24, 8, SSD1306_BLACK);
+        display.display();
+        display.setTextSize(2);
+    }
 }
